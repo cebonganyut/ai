@@ -1,7 +1,7 @@
 import requests
 import json
 
-API_KEY = "AIzaSyCN94L68GCs9s9hVOTNysDJHNT3m5YOEFw"
+API_KEY = "isi token geminimu"
 URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={API_KEY}"
 
 def generate_content(user_input):
