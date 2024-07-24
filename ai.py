@@ -28,9 +28,15 @@ def generate_content(user_input):
     else:
         return f"Error: {response.status_code}, {response.text}"
 
-# Meminta input dari pengguna
-user_input = input("Masukkan pertanyaan atau pernyataan Anda: ")
-
-# Memanggil fungsi dan mencetak hasilnya
-result = generate_content(user_input)
-print(result)
+# Loop utama
+while True:
+    try:
+        # Meminta input dari pengguna
+        user_input = input("Masukkan pertanyaan atau pernyataan Anda (atau tekan Ctrl+C untuk keluar): ")
+        # Memanggil fungsi dan mencetak hasilnya
+        result = generate_content(user_input)
+        print(result)
+        print("\n")  # Menambahkan baris kosong untuk memisahkan setiap interaksi
+    except KeyboardInterrupt:
+        print("\nProgram dihentikan oleh pengguna.")
+        break
