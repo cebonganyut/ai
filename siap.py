@@ -1,10 +1,24 @@
 import requests
 import json
+import time
 
-# Function to generate content using the Gemini API
+# Fungsi untuk menerima notifikasi
+def receive_notification():
+    url = "https://7103.api.greenapi.com/waInstance7103961704/receiveNotification/8b2659c3a610483487dcba3bd67d101470ca098a8dcb483bae"
+    response = requests.get(url)
+    return response.json()
+
+# Fungsi untuk menghapus notifikasi
+def delete_notification(receipt_id):
+    url = f"https://7103.api.greenapi.com/waInstance7103961704/deleteNotification/8b2659c3a610483487dcba3bd67d101470ca098a8dcb483bae/{receipt_id}"
+    requests.delete(url)
+
+# Fungsi untuk generate konten menggunakan API Gemini
 def generate_content(user_input):
     api_key = "AIzaSyCN94L68GCs9s9hVOTNysDJHNT3m5YOEFw"
     url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={api_key}"
+    
+    headers = {'Content-Type': 'application/json'}
     data = {
         "contents": [
             {
@@ -13,49 +27,47 @@ def generate_content(user_input):
             }
         ]
     }
-    headers = {'Content-Type': 'application/json'}
-    response = requests.post(url, json=data, headers=headers)
-    if response.status_code != 200:
-        return "Error accessing Gemini API"
-    result = response.json()
-    return result['candidates'][0]['content']['parts'][0]['text']
+    
+    response = requests.post(url, headers=headers, json=data)
+    
+    if response.status_code == 200:
+        response_json = response.json()
+        text = response_json['candidates'][0]['content']['parts'][0]['text']
+        return text
+    else:
+        return f"Error: {response.status_code}, {response.text}"
 
-# Function to send a WhatsApp message using GreenAPI
-def send_whatsapp_message(to, message):
+# Fungsi untuk mengirim pesan WhatsApp
+def send_whatsapp_message(chat_id, message):
     url = "https://7103.api.greenapi.com/waInstance7103961704/sendMessage/8b2659c3a610483487dcba3bd67d101470ca098a8dcb483bae"
-    data = {
-        'chatId': f'{to}@c.us',
-        'message': message
+    payload = {
+        "chatId": chat_id,
+        "message": message
     }
     headers = {'Content-Type': 'application/json'}
-    response = requests.post(url, json=data, headers=headers)
-    if response.status_code != 200:
-        return "Error sending WhatsApp message"
+    response = requests.post(url, headers=headers, json=payload)
     return response.json()
 
-# Flask app to handle webhooks (assuming you're using Flask)
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
-@app.route('/', methods=['POST'])
-def webhook():
-    input_data = request.json
-    if 'body' in input_data and 'messageData' in input_data['body'] and 'textMessageData' in input_data['body']['messageData']:
-        from_user = input_data['body']['senderData']['sender']
-        message = input_data['body']['messageData']['textMessageData']['textMessage']
+# Main loop
+while True:
+    notification = receive_notification()
+    
+    if notification is not None and 'body' in notification:
+        body = notification['body']
         
-        # Generate response
-        response = generate_content(message)
+        if body['typeWebhook'] == 'incomingMessageReceived':
+            chat_id = body['senderData']['sender']
+            if 'messageData' in body and 'extendedTextMessageData' in body['messageData']:
+                user_input = body['messageData']['extendedTextMessageData']['text']
+                
+                # Generate response
+                response = generate_content(user_input)
+                
+                # Send response back to WhatsApp
+                send_result = send_whatsapp_message(chat_id, response)
+                print(f"Sent message: {send_result}")
         
-        # Send response
-        result = send_whatsapp_message(from_user, response)
-        if 'idMessage' in result:
-            return jsonify({"message": f"Message sent with ID: {result['idMessage']}"})
-        else:
-            return jsonify({"error": f"Error sending message: {json.dumps(result)}"})
-    else:
-        return jsonify({"error": "Not a text message or unrecognized format"})
-
-if __name__ == '__main__':
-    app.run(debug=True)
+        # Delete the processed notification
+        delete_notification(notification['receiptId'])
+    
+    time.sleep(1)  # Wait for 1 second before checking for new notifications
